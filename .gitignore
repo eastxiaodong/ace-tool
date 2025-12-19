@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.ace-tool/
+*.log
+.DS_Store
