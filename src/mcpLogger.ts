@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { getAceDir } from './utils/projectDetector.js';
 
 type LogLevel = 'debug' | 'info' | 'warning' | 'error';
 
@@ -35,13 +36,7 @@ export function setLogProjectPath(projectRoot: string): void {
     return;
   }
 
-  const aceDir = path.join(projectRoot, '.ace-tool');
-
-  // 确保 .ace-tool 目录存在
-  if (!fs.existsSync(aceDir)) {
-    fs.mkdirSync(aceDir, { recursive: true });
-  }
-
+  const aceDir = getAceDir(projectRoot);
   logFilePath = path.join(aceDir, 'ace-tool.log');
 
   // 关闭旧的流

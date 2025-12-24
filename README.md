@@ -47,7 +47,7 @@ Add to your MCP configuration (e.g., Claude Desktop `claude_desktop_config.json`
 |----------|----------|-------------|
 | `--base-url` | Yes | API base URL for the indexing service |
 | `--token` | Yes | Authentication token |
-| `--enable-log` | No | Enable logging to `.ace-tool/ace-tool.log` in project directory |
+| `--enable-log` | No | Enable logging to `~/.ace-tool/<full-path>-<hash>/ace-tool.log` (Windows: `C:\Users\<user>\.ace-tool\C-Users-<user>-Projects-<project>-<hash>\ace-tool.log`) |
 | `--batch-size` | No | Number of blobs per `/batch-upload` request (default: 50) |
 | `--max-lines-per-blob` | No | Max lines per blob when splitting large files (default: 2000) |
 | `--upload-concurrency` | No | Parallel upload workers for batch requests (default: 2) |
@@ -73,18 +73,16 @@ Search for relevant code context based on a natural language query.
 
 ### Project Data
 
-ace-tool stores index data in a `.ace-tool` directory within each project:
+ace-tool stores index data under the user home directory:
 
 ```
-your-project/
-├── .ace-tool/
-│   ├── index.json      # Index metadata
-│   └── ace-tool.log    # Logs (if --enable-log is set)
-├── src/
-└── ...
+~/.ace-tool/
+└── <full-path>-<hash>/
+    ├── index.json      # Index metadata
+    └── ace-tool.log    # Logs (if --enable-log is set)
 ```
 
-The `.ace-tool` directory is automatically added to `.gitignore`.
+Windows example: `C:\Users\<user>\.ace-tool\C-Users-<user>-Projects-<project>-<hash>\...`
 
 ### Supported File Types
 
@@ -163,7 +161,7 @@ npx ace-tool --base-url <URL> --token <TOKEN>
 |------|------|------|
 | `--base-url` | 是 | 索引服务的 API 基础 URL |
 | `--token` | 是 | 认证令牌 |
-| `--enable-log` | 否 | 启用日志，保存到项目目录的 `.ace-tool/ace-tool.log` |
+| `--enable-log` | 否 | 启用日志，保存到 `~/.ace-tool/<full-path>-<hash>/ace-tool.log`（Windows: `C:\Users\<user>\.ace-tool\C-Users-<user>-Projects-<project>-<hash>\ace-tool.log`） |
 | `--batch-size` | 否 | 每次 `/batch-upload` 上传的 blob 数量（默认 50） |
 | `--max-lines-per-blob` | 否 | 大文件切分时每个 blob 的最大行数（默认 2000） |
 | `--upload-concurrency` | 否 | 批量上传并发数（默认 2） |
@@ -189,18 +187,16 @@ npx ace-tool --base-url <URL> --token <TOKEN>
 
 ### 项目数据
 
-ace-tool 在每个项目的 `.ace-tool` 目录中存储索引数据：
+ace-tool 在用户主目录下存储索引数据：
 
 ```
-your-project/
-├── .ace-tool/
-│   ├── index.json      # 索引元数据
-│   └── ace-tool.log    # 日志（如果设置了 --enable-log）
-├── src/
-└── ...
+~/.ace-tool/
+└── <full-path>-<hash>/
+    ├── index.json      # 索引元数据
+    └── ace-tool.log    # 日志（如果设置了 --enable-log）
 ```
 
-`.ace-tool` 目录会自动添加到 `.gitignore`。
+Windows 示例：`C:\Users\<user>\.ace-tool\C-Users-<user>-Projects-<project>-<hash>\...`
 
 ### 支持的文件类型
 
@@ -233,3 +229,11 @@ ace-tool 支持通过 MCP 协议实时推送日志。日志会自动推送到支
 ### 许可证
 
 MIT
+
+
+
+
+
+
+
+
