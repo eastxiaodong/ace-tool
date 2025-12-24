@@ -95,6 +95,9 @@ export class IndexManager {
   private batchSize: number;
   private maxLinesPerBlob: number;
   private excludePatterns: string[];
+  private uploadConcurrency: number;
+  private uploadTimeoutMs: number;
+  private retrievalTimeoutMs: number;
   private indexFilePath: string;
   private httpClient: AxiosInstance;
 
@@ -105,7 +108,10 @@ export class IndexManager {
     textExtensions: Set<string>,
     batchSize: number,
     maxLinesPerBlob: number = 800,
-    excludePatterns: string[] = []
+    excludePatterns: string[] = [],
+    uploadConcurrency: number = 2,
+    uploadTimeoutMs: number = 30000,
+    retrievalTimeoutMs: number = 60000
   ) {
     this.projectRoot = projectRoot;
     this.baseUrl = baseUrl.replace(/\/$/, '');
@@ -114,6 +120,9 @@ export class IndexManager {
     this.batchSize = batchSize;
     this.maxLinesPerBlob = maxLinesPerBlob;
     this.excludePatterns = excludePatterns;
+    this.uploadConcurrency = uploadConcurrency;
+    this.uploadTimeoutMs = uploadTimeoutMs;
+    this.retrievalTimeoutMs = retrievalTimeoutMs;
     this.indexFilePath = getIndexFilePath(projectRoot);
 
     this.httpClient = axios.create({
@@ -430,35 +439,54 @@ export class IndexManager {
         const totalBatches = Math.ceil(blobsToUpload.length / this.batchSize);
         sendMcpLog('info', `⬆️ 开始上传 ${blobsToUpload.length} 个新文件块，共 ${totalBatches} 批`);
 
+        const batches: Blob[][] = [];
         for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
           const startIdx = batchIdx * this.batchSize;
           const endIdx = Math.min(startIdx + this.batchSize, blobsToUpload.length);
-          const batchBlobs = blobsToUpload.slice(startIdx, endIdx);
+          batches.push(blobsToUpload.slice(startIdx, endIdx));
+        }
 
-          sendMcpLog('info', `📤 上传批次 ${batchIdx + 1}/${totalBatches}...`);
+        const concurrency = Math.max(1, this.uploadConcurrency);
+        let nextBatch = 0;
 
-          try {
-            const result = await this.retryRequest(async () => {
-              const response = await this.httpClient.post(`${this.baseUrl}/batch-upload`, {
-                blobs: batchBlobs,
-              });
-              return response.data;
-            });
-
-            const batchBlobNames = result.blob_names || [];
-            if (batchBlobNames.length === 0) {
-              sendMcpLog('warning', `⚠️ 批次 ${batchIdx + 1} 返回空结果`);
-              failedBatches.push(batchIdx + 1);
-              continue;
+        const workers = Array.from({ length: Math.min(concurrency, batches.length) }, async () => {
+          while (true) {
+            const batchIdx = nextBatch;
+            nextBatch++;
+            if (batchIdx >= batches.length) {
+              break;
             }
 
-            uploadedBlobNames.push(...batchBlobNames);
-          } catch (error: unknown) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            sendMcpLog('error', `❌ 批次 ${batchIdx + 1} 上传失败: ${errorMessage}`);
-            failedBatches.push(batchIdx + 1);
+            const batchBlobs = batches[batchIdx];
+            sendMcpLog('info', `📤 上传批次 ${batchIdx + 1}/${totalBatches}...`);
+
+            try {
+              const result = await this.retryRequest(async () => {
+                const response = await this.httpClient.post(
+                  `${this.baseUrl}/batch-upload`,
+                  { blobs: batchBlobs },
+                  { timeout: this.uploadTimeoutMs }
+                );
+                return response.data;
+              });
+
+              const batchBlobNames = result.blob_names || [];
+              if (batchBlobNames.length === 0) {
+                sendMcpLog('warning', `⚠️ 批次 ${batchIdx + 1} 返回空结果`);
+                failedBatches.push(batchIdx + 1);
+                continue;
+              }
+
+              uploadedBlobNames.push(...batchBlobNames);
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              sendMcpLog('error', `❌ 批次 ${batchIdx + 1} 上传失败: ${errorMessage}`);
+              failedBatches.push(batchIdx + 1);
+            }
           }
-        }
+        });
+
+        await Promise.all(workers);
 
         if (uploadedBlobNames.length === 0 && blobsToUpload.length > 0 && existingHashes.size === 0) {
           sendMcpLog('error', '❌ 所有批次上传失败');
@@ -531,7 +559,7 @@ export class IndexManager {
         const response = await this.httpClient.post(
           `${this.baseUrl}/agents/codebase-retrieval`,
           payload,
-          { timeout: 60000 }
+          { timeout: this.retrievalTimeoutMs }
         );
         return response.data;
       }, 3, 2000);

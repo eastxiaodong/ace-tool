@@ -7,6 +7,9 @@ export interface Config {
   token: string;
   batchSize: number;
   maxLinesPerBlob: number;
+  uploadConcurrency: number;
+  uploadTimeoutMs: number;
+  retrievalTimeoutMs: number;
   textExtensions: Set<string>;
   excludePatterns: string[];
   enableLog: boolean;
@@ -55,9 +58,27 @@ let config: Config | null = null;
 /**
  * 解析命令行参数
  */
-function parseArgs(): { baseUrl?: string; token?: string; enableLog?: boolean } {
+function parseArgs(): {
+  baseUrl?: string;
+  token?: string;
+  enableLog?: boolean;
+  batchSize?: number;
+  maxLinesPerBlob?: number;
+  uploadConcurrency?: number;
+  uploadTimeoutMs?: number;
+  retrievalTimeoutMs?: number;
+} {
   const args = process.argv.slice(2);
-  const result: { baseUrl?: string; token?: string; enableLog?: boolean } = {};
+  const result: {
+    baseUrl?: string;
+    token?: string;
+    enableLog?: boolean;
+    batchSize?: number;
+    maxLinesPerBlob?: number;
+    uploadConcurrency?: number;
+    uploadTimeoutMs?: number;
+    retrievalTimeoutMs?: number;
+  } = {};
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -69,6 +90,21 @@ function parseArgs(): { baseUrl?: string; token?: string; enableLog?: boolean } 
       i++;
     } else if (arg === '--enable-log') {
       result.enableLog = true;
+    } else if (arg === '--batch-size' && i + 1 < args.length) {
+      result.batchSize = Number.parseInt(args[i + 1], 10);
+      i++;
+    } else if (arg === '--max-lines-per-blob' && i + 1 < args.length) {
+      result.maxLinesPerBlob = Number.parseInt(args[i + 1], 10);
+      i++;
+    } else if (arg === '--upload-concurrency' && i + 1 < args.length) {
+      result.uploadConcurrency = Number.parseInt(args[i + 1], 10);
+      i++;
+    } else if (arg === '--upload-timeout-ms' && i + 1 < args.length) {
+      result.uploadTimeoutMs = Number.parseInt(args[i + 1], 10);
+      i++;
+    } else if (arg === '--retrieval-timeout-ms' && i + 1 < args.length) {
+      result.retrievalTimeoutMs = Number.parseInt(args[i + 1], 10);
+      i++;
     }
   }
 
@@ -99,8 +135,23 @@ export function initConfig(): Config {
   config = {
     baseUrl,
     token: args.token,
-    batchSize: 10,
-    maxLinesPerBlob: 800,
+    batchSize: Number.isFinite(args.batchSize) && (args.batchSize as number) > 0 ? (args.batchSize as number) : 50,
+    maxLinesPerBlob:
+      Number.isFinite(args.maxLinesPerBlob) && (args.maxLinesPerBlob as number) > 0
+        ? (args.maxLinesPerBlob as number)
+        : 2000,
+    uploadConcurrency:
+      Number.isFinite(args.uploadConcurrency) && (args.uploadConcurrency as number) > 0
+        ? (args.uploadConcurrency as number)
+        : 2,
+    uploadTimeoutMs:
+      Number.isFinite(args.uploadTimeoutMs) && (args.uploadTimeoutMs as number) > 0
+        ? (args.uploadTimeoutMs as number)
+        : 30000,
+    retrievalTimeoutMs:
+      Number.isFinite(args.retrievalTimeoutMs) && (args.retrievalTimeoutMs as number) > 0
+        ? (args.retrievalTimeoutMs as number)
+        : 60000,
     textExtensions: DEFAULT_TEXT_EXTENSIONS,
     excludePatterns: DEFAULT_EXCLUDE_PATTERNS,
     enableLog: args.enableLog || false

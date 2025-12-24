@@ -48,6 +48,11 @@ Add to your MCP configuration (e.g., Claude Desktop `claude_desktop_config.json`
 | `--base-url` | Yes | API base URL for the indexing service |
 | `--token` | Yes | Authentication token |
 | `--enable-log` | No | Enable logging to `.ace-tool/ace-tool.log` in project directory |
+| `--batch-size` | No | Number of blobs per `/batch-upload` request (default: 50) |
+| `--max-lines-per-blob` | No | Max lines per blob when splitting large files (default: 2000) |
+| `--upload-concurrency` | No | Parallel upload workers for batch requests (default: 2) |
+| `--upload-timeout-ms` | No | Timeout per `/batch-upload` request in ms (default: 30000) |
+| `--retrieval-timeout-ms` | No | Timeout for codebase retrieval request in ms (default: 60000) |
 
 ### Tools
 
@@ -159,6 +164,11 @@ npx ace-tool --base-url <URL> --token <TOKEN>
 | `--base-url` | 是 | 索引服务的 API 基础 URL |
 | `--token` | 是 | 认证令牌 |
 | `--enable-log` | 否 | 启用日志，保存到项目目录的 `.ace-tool/ace-tool.log` |
+| `--batch-size` | 否 | 每次 `/batch-upload` 上传的 blob 数量（默认 50） |
+| `--max-lines-per-blob` | 否 | 大文件切分时每个 blob 的最大行数（默认 2000） |
+| `--upload-concurrency` | 否 | 批量上传并发数（默认 2） |
+| `--upload-timeout-ms` | 否 | 单次 `/batch-upload` 请求超时毫秒数（默认 30000） |
+| `--retrieval-timeout-ms` | 否 | 检索请求超时毫秒数（默认 60000） |
 
 ### 工具
 

@@ -68,7 +68,10 @@ export async function searchContextTool(args: SearchContextArgs): Promise<ToolRe
       config.textExtensions,
       config.batchSize,
       config.maxLinesPerBlob,
-      config.excludePatterns
+      config.excludePatterns,
+      config.uploadConcurrency,
+      config.uploadTimeoutMs,
+      config.retrievalTimeoutMs
     );
 
     const result = await indexManager.searchContext(query);
