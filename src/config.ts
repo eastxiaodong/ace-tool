@@ -63,38 +63,80 @@ export function getUploadStrategy(blobCount: number): UploadStrategy {
 
 // 默认支持的文本文件扩展名
 const DEFAULT_TEXT_EXTENSIONS = new Set([
-  // 编程语言
-  '.py', '.js', '.ts', '.jsx', '.tsx',
-  '.java', '.go', '.rs', '.cpp', '.c',
-  '.h', '.hpp', '.cs', '.rb', '.php',
-  '.swift', '.kt', '.scala', '.clj',
+  // 主流编程语言
+  '.py', '.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs',
+  '.java', '.go', '.rs', '.cpp', '.c', '.cc',
+  '.h', '.hpp', '.hxx', '.cs', '.rb', '.php',
+  '.swift', '.kt', '.kts', '.scala', '.clj', '.cljs',
+  // 其他编程语言
+  '.lua', '.dart', '.m', '.mm', '.pl', '.pm',
+  '.r', '.R', '.jl', '.ex', '.exs', '.erl',
+  '.hs', '.zig', '.v', '.nim', '.f90', '.f95',
+  '.groovy', '.gradle', '.sol', '.move',
   // 配置和数据
-  '.md', '.txt', '.json', '.yaml', '.yml',
-  '.toml', '.xml', '.ini', '.conf',
+  '.md', '.mdx', '.txt', '.json', '.jsonc', '.json5',
+  '.yaml', '.yml', '.toml', '.xml', '.ini', '.conf',
+  '.cfg', '.properties', '.env.example', '.editorconfig',
   // Web 相关
-  '.html', '.css', '.scss', '.sass', '.less',
-  // 脚本
-  '.sql', '.sh', '.bash', '.ps1', '.bat',
-  '.vue', '.svelte'
+  '.html', '.htm', '.css', '.scss', '.sass', '.less', '.styl',
+  '.vue', '.svelte', '.astro',
+  // 模板引擎
+  '.ejs', '.hbs', '.pug', '.jade', '.jinja', '.jinja2',
+  '.erb', '.liquid', '.twig', '.mustache', '.njk',
+  // 脚本和构建
+  '.sql', '.sh', '.bash', '.zsh', '.fish',
+  '.ps1', '.psm1', '.bat', '.cmd',
+  '.makefile', '.mk', '.cmake',
+  // API 和数据格式
+  '.graphql', '.gql', '.proto', '.prisma',
+  '.csv', '.tsv',
+  // 文档
+  '.rst', '.adoc', '.tex', '.org',
+  // Docker 和 CI/CD
+  '.dockerfile', '.containerfile',
+  // 其他
+  '.vim', '.el', '.rkt'
 ]);
 
 // 默认排除模式
 const DEFAULT_EXCLUDE_PATTERNS = [
-  // 虚拟环境
+  // 虚拟环境和依赖
   '.venv', 'venv', '.env', 'env', 'node_modules',
+  'vendor', '.pnpm', '.yarn', 'bower_components',
   // 版本控制
-  '.git', '.svn', '.hg',
+  '.git', '.svn', '.hg', '.gitmodules',
   // Python 缓存
   '__pycache__', '.pytest_cache', '.mypy_cache',
-  '.tox', '.eggs', '*.egg-info',
+  '.tox', '.eggs', '*.egg-info', '.ruff_cache',
   // 构建产物
-  'dist', 'build', 'target', 'out',
+  'dist', 'build', 'target', 'out', 'bin', 'obj',
+  '.next', '.nuxt', '.output', '.vercel', '.netlify',
+  '.turbo', '.parcel-cache', '.cache', '.temp', '.tmp',
+  // 测试覆盖率
+  'coverage', '.nyc_output', 'htmlcov',
   // IDE 配置
-  '.idea', '.vscode', '.vs',
+  '.idea', '.vscode', '.vs', '*.swp', '*.swo',
   // 系统文件
-  '.DS_Store', 'Thumbs.db',
-  // 编译文件
-  '*.pyc', '*.pyo', '*.pyd', '*.so', '*.dll',
+  '.DS_Store', 'Thumbs.db', 'desktop.ini',
+  // 编译和二进制文件
+  '*.pyc', '*.pyo', '*.pyd', '*.so', '*.dll', '*.dylib',
+  '*.exe', '*.o', '*.obj', '*.class', '*.jar', '*.war',
+  // 压缩和打包文件
+  '*.min.js', '*.min.css', '*.bundle.js', '*.chunk.js',
+  '*.map', '*.gz', '*.zip', '*.tar', '*.rar',
+  // 锁文件（通常不需要索引）
+  'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+  'Gemfile.lock', 'poetry.lock', 'Cargo.lock', 'composer.lock',
+  // 日志和临时文件
+  '*.log', 'logs', 'tmp', 'temp',
+  // 媒体文件
+  '*.png', '*.jpg', '*.jpeg', '*.gif', '*.ico', '*.svg',
+  '*.mp3', '*.mp4', '*.wav', '*.avi', '*.mov',
+  '*.pdf', '*.doc', '*.docx', '*.xls', '*.xlsx',
+  // 字体文件
+  '*.woff', '*.woff2', '*.ttf', '*.eot', '*.otf',
+  // 数据库文件
+  '*.db', '*.sqlite', '*.sqlite3',
   // Ace-tool 目录
   '.ace-tool'
 ];
