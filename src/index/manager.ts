@@ -474,46 +474,51 @@ export class IndexManager {
         const strategy = getUploadStrategy(blobsToUpload.length);
         sendMcpLog('info', `📐 项目规模: ${strategy.scaleName} (批次大小: ${strategy.batchSize}, 并发: ${strategy.concurrency})`);
 
-        // 准备所有批次，每个批次带有索引
-        const allBatches: { blobs: Blob[]; idx: number }[] = [];
-        for (let i = 0; i < blobsToUpload.length; i += strategy.batchSize) {
-          allBatches.push({
-            blobs: blobsToUpload.slice(i, i + strategy.batchSize),
-            idx: allBatches.length + 1
-          });
-        }
-
-        const totalBatches = allBatches.length;
-        sendMcpLog('info', `⬆️ 开始上传 ${blobsToUpload.length} 个新文件块，共 ${totalBatches} 批`);
-
-        // 待上传的批次队列
-        let pendingBatches = [...allBatches];
+        // 待上传的文件队列（初始为所有需要上传的文件）
+        let pendingBlobs = [...blobsToUpload];
+        let currentBatchSize = strategy.batchSize;
         const maxRetryRounds = 3;  // 最多重试3轮
         let retryRound = 0;
+        let totalBatchIdx = 0;
 
-        while (pendingBatches.length > 0 && retryRound < maxRetryRounds && !fatalError) {
+        while (pendingBlobs.length > 0 && retryRound < maxRetryRounds && !fatalError) {
+          // 重试时使用更小的批次大小
           if (retryRound > 0) {
-            sendMcpLog('info', `🔄 第 ${retryRound} 轮重试: ${pendingBatches.length} 个失败批次`);
+            currentBatchSize = Math.max(5, Math.floor(currentBatchSize / 2));  // 每轮减半，最小5个
+            sendMcpLog('info', `🔄 第 ${retryRound} 轮重试: ${pendingBlobs.length} 个文件，批次大小调整为 ${currentBatchSize}`);
           }
 
-          const failedInThisRound: { blobs: Blob[]; idx: number }[] = [];
+          // 重新分批
+          const batches: Blob[][] = [];
+          for (let i = 0; i < pendingBlobs.length; i += currentBatchSize) {
+            batches.push(pendingBlobs.slice(i, i + currentBatchSize));
+          }
+
+          const totalBatches = batches.length;
+          if (retryRound === 0) {
+            sendMcpLog('info', `⬆️ 开始上传 ${pendingBlobs.length} 个新文件块，共 ${totalBatches} 批`);
+          }
+
+          // 收集本轮失败的文件
+          const failedBlobsInThisRound: Blob[] = [];
 
           // 并发上传当前轮次的批次
-          for (let i = 0; i < pendingBatches.length; i += strategy.concurrency) {
+          for (let i = 0; i < batches.length; i += strategy.concurrency) {
             if (fatalError) break;
 
-            const concurrentBatches = pendingBatches.slice(i, i + strategy.concurrency);
-            const batchIndices = concurrentBatches.map(b => b.idx);
+            const concurrentBatches = batches.slice(i, i + strategy.concurrency);
 
             if (retryRound === 0) {
-              sendMcpLog('info', `📤 上传批次 ${batchIndices.join(', ')}/${totalBatches}...`);
+              const batchNums = concurrentBatches.map((_, idx) => i + idx + 1);
+              sendMcpLog('info', `📤 上传批次 ${batchNums.join(', ')}/${totalBatches}...`);
             } else {
-              sendMcpLog('info', `📤 重试批次 ${batchIndices.join(', ')}...`);
+              sendMcpLog('info', `📤 重试上传 ${concurrentBatches.length} 个批次...`);
             }
 
-            const uploadPromises = concurrentBatches.map(batch =>
-              uploadBatch(batch.blobs, batch.idx, strategy.timeout)
-            );
+            const uploadPromises = concurrentBatches.map(async (batchBlobs) => {
+              totalBatchIdx++;
+              return uploadBatch(batchBlobs, totalBatchIdx, strategy.timeout);
+            });
 
             const results = await Promise.all(uploadPromises);
 
@@ -525,8 +530,8 @@ export class IndexManager {
                 if (result.fatal) {
                   fatalError = result.error;
                 } else {
-                  // 非致命错误，加入重试队列
-                  failedInThisRound.push(concurrentBatches[j]);
+                  // 非致命错误，将该批次的文件加入重试队列
+                  failedBlobsInThisRound.push(...concurrentBatches[j]);
                 }
               }
             }
@@ -538,19 +543,16 @@ export class IndexManager {
             }
           }
 
-          // 更新待重试批次
-          pendingBatches = failedInThisRound;
+          // 更新待重试的文件列表
+          pendingBlobs = failedBlobsInThisRound;
           retryRound++;
         }
 
-        // 记录最终失败的批次数
-        const finalFailedCount = pendingBatches.length;
+        // 记录最终失败的文件数
+        const finalFailedCount = pendingBlobs.length;
         if (finalFailedCount > 0 && !fatalError) {
-          sendMcpLog('warning', `⚠️ ${finalFailedCount} 个批次在 ${maxRetryRounds} 轮重试后仍然失败`);
+          sendMcpLog('warning', `⚠️ ${finalFailedCount} 个文件在 ${maxRetryRounds} 轮重试后仍然失败`);
         }
-
-        // 构建失败批次列表用于返回
-        const failedBatches = pendingBatches.map(b => b.idx);
 
         // 最终保存
         const allBlobNames = [...existingHashes, ...uploadedBlobNames];
@@ -568,7 +570,7 @@ export class IndexManager {
                 total_blobs: allBlobNames.length,
                 existing_blobs: existingHashes.size,
                 new_blobs: uploadedBlobNames.length,
-                failed_batches: failedBatches.length,
+                failed_batches: finalFailedCount,
               },
             };
           } else if (existingHashes.size > 0) {
@@ -581,7 +583,7 @@ export class IndexManager {
                 total_blobs: existingHashes.size,
                 existing_blobs: existingHashes.size,
                 new_blobs: 0,
-                failed_batches: failedBatches.length,
+                failed_batches: finalFailedCount,
               },
             };
           } else {
@@ -590,26 +592,26 @@ export class IndexManager {
           }
         }
 
-        if (failedBatches.length > 0 && uploadedBlobNames.length === 0 && existingHashes.size === 0) {
-          const errorMsg = '所有批次上传失败，请检查网络连接和服务配置';
+        if (finalFailedCount > 0 && uploadedBlobNames.length === 0 && existingHashes.size === 0) {
+          const errorMsg = '所有文件上传失败，请检查网络连接和服务配置';
           sendMcpLog('error', `❌ ${errorMsg}`);
           return { status: 'error', message: errorMsg };
         }
 
-        const message = failedBatches.length > 0
-          ? `索引部分完成: ${allBlobNames.length} 个文件块 (已有: ${existingHashes.size}, 新增: ${uploadedBlobNames.length}, 失败批次: ${failedBatches.length})。重试可继续完成剩余部分。`
+        const message = finalFailedCount > 0
+          ? `索引部分完成: ${allBlobNames.length} 个文件块 (已有: ${existingHashes.size}, 新增: ${uploadedBlobNames.length}, 失败: ${finalFailedCount})。重试可继续完成剩余部分。`
           : `Indexed ${allBlobNames.length} blobs (existing: ${existingHashes.size}, new: ${uploadedBlobNames.length})`;
 
         sendMcpLog('info', `✅ 索引完成: 共 ${allBlobNames.length} 个文件块`);
 
         return {
-          status: failedBatches.length === 0 ? 'success' : 'partial_success',
+          status: finalFailedCount === 0 ? 'success' : 'partial_success',
           message,
           stats: {
             total_blobs: allBlobNames.length,
             existing_blobs: existingHashes.size,
             new_blobs: uploadedBlobNames.length,
-            ...(failedBatches.length > 0 && { failed_batches: failedBatches.length }),
+            ...(finalFailedCount > 0 && { failed_files: finalFailedCount }),
           },
         };
       } else {
