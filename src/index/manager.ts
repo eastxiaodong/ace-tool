@@ -80,6 +80,33 @@ function calculateBlobName(filePath: string, content: string): string {
 }
 
 /**
+ * 单个 blob 的最大字节数（500KB）
+ */
+const MAX_BLOB_SIZE = 500 * 1024;
+
+/**
+ * 单个批次的最大总字节数（5MB）
+ */
+const MAX_BATCH_SIZE = 5 * 1024 * 1024;
+
+/**
+ * 清理文件内容，移除可能导致 JSON 序列化问题的字符
+ */
+function sanitizeContent(content: string): string {
+  // 移除 NULL 字符和其他控制字符（保留换行、回车、制表符）
+  return content.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+}
+
+/**
+ * 检查内容是否可能是二进制文件
+ */
+function isBinaryContent(content: string): boolean {
+  // 检查是否包含大量不可打印字符
+  const nonPrintable = content.match(/[\x00-\x08\x0E-\x1F\x7F]/g) || [];
+  return nonPrintable.length > content.length * 0.1; // 超过10%的不可打印字符
+}
+
+/**
  * 睡眠工具函数
  */
 function sleep(ms: number): Promise<void> {
@@ -305,7 +332,23 @@ export class IndexManager {
             }
 
             const content = await readFileWithEncoding(fullPath);
-            const fileBlobs = this.splitFileContent(relativePath, content);
+
+            // 跳过二进制文件
+            if (isBinaryContent(content)) {
+              continue;
+            }
+
+            // 清理内容中的问题字符
+            const cleanContent = sanitizeContent(content);
+
+            // 跳过过大的文件
+            const contentSize = Buffer.byteLength(cleanContent, 'utf-8');
+            if (contentSize > MAX_BLOB_SIZE) {
+              sendMcpLog('warning', `⚠️ 跳过过大文件: ${relativePath} (${Math.round(contentSize / 1024)}KB)`);
+              continue;
+            }
+
+            const fileBlobs = this.splitFileContent(relativePath, cleanContent);
             blobs.push(...fileBlobs);
           } catch (error) {
             // 静默处理读取失败
@@ -345,6 +388,26 @@ export class IndexManager {
         if (axiosError.response?.status === 403) {
           sendMcpLog('error', '🚫 访问被拒绝，Token 可能已被禁用');
           throw new Error('访问被拒绝，Token 可能已被官方禁用，请联系服务提供商');
+        }
+
+        // 请求错误 - 通常是内容问题或协议问题
+        if (axiosError.response?.status === 400) {
+          const responseData = axiosError.response?.data;
+          const errorDetail = typeof responseData === 'object' && responseData !== null
+            ? JSON.stringify(responseData)
+            : String(responseData || '未知错误');
+
+          // 检测 HTTP/HTTPS 协议不匹配错误
+          if (errorDetail.includes('plain HTTP request was sent to HTTPS port') ||
+              errorDetail.includes('HTTP request was sent to HTTPS')) {
+            sendMcpLog('error', '🔐 协议错误: 您使用了 HTTP 但服务器要求 HTTPS');
+            sendMcpLog('error', '💡 请将 ACE_BASE_URL 从 http:// 改为 https://');
+            throw new Error('协议错误: 请将 ACE_BASE_URL 从 http:// 改为 https://');
+          }
+
+          sendMcpLog('error', `❌ 请求格式错误 (400): ${errorDetail}`);
+          // 400 错误不重试，但标记为非致命，允许跳过问题批次继续处理其他批次
+          throw new Error(`请求格式错误: ${errorDetail}`);
         }
 
         // SSL 证书错误检测 - 不重试
@@ -437,6 +500,14 @@ export class IndexManager {
       // 辅助函数：上传单个批次
       const uploadBatch = async (batchBlobs: Blob[], batchIdx: number, timeout: number) => {
         try {
+          // 检查批次大小，避免请求过大导致 400 错误
+          const batchSize = batchBlobs.reduce((sum, blob) => sum + Buffer.byteLength(blob.content, 'utf-8'), 0);
+          if (batchSize > MAX_BATCH_SIZE) {
+            sendMcpLog('warning', `⚠️ 批次 ${batchIdx} 过大 (${Math.round(batchSize / 1024 / 1024)}MB)，将拆分处理`);
+            // 返回失败，让重试机制用更小的批次重试
+            return { success: false, batchIdx, blobNames: [], error: '批次过大，需要拆分', fatal: false };
+          }
+
           const result = await this.retryRequest(async () => {
             const response = await this.httpClient.post(
               `${this.baseUrl}/batch-upload`,

@@ -180,11 +180,17 @@ export function initConfig(): Config {
     throw new Error('Missing required argument: --token');
   }
 
-  // 确保 baseUrl 包含协议前缀
+  // 确保 baseUrl 使用 https:// 协议
   let baseUrl = args.baseUrl;
   if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
     baseUrl = `https://${baseUrl}`;
+  } else if (baseUrl.startsWith('http://')) {
+    // ACE 服务器只支持 HTTPS，自动转换
+    const originalUrl = baseUrl;
+    baseUrl = baseUrl.replace('http://', 'https://');
+    console.log(`🔐 已自动将 http:// 转换为 https:// (${originalUrl} → ${baseUrl})`);
   }
+
   baseUrl = baseUrl.replace(/\/$/, ''); // 移除末尾斜杠
 
   config = {
