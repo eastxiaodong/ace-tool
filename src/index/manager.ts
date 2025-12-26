@@ -424,6 +424,7 @@ export class IndexManager {
           axiosError.code === 'ECONNREFUSED' ||
           axiosError.code === 'ETIMEDOUT' ||
           axiosError.code === 'ENOTFOUND' ||
+          axiosError.code === 'ECONNRESET' ||
           (axiosError.response && axiosError.response.status >= 500);
 
         if (!isRetryable || attempt === maxRetries - 1) {
@@ -435,6 +436,14 @@ export class IndexManager {
             friendlyMessage = '连接超时，请检查网络状况';
           } else if (axiosError.code === 'ENOTFOUND') {
             friendlyMessage = '无法解析服务器地址，请检查 ACE_BASE_URL 配置';
+          } else if (axiosError.code === 'ECONNRESET') {
+            friendlyMessage = '连接被重置，服务器可能繁忙，请稍后重试';
+          } else if (axiosError.response?.status === 502) {
+            friendlyMessage = '服务器网关错误 (502)，ACE 服务可能暂时不可用，请稍后重试';
+          } else if (axiosError.response?.status === 503) {
+            friendlyMessage = '服务暂时不可用 (503)，ACE 服务可能正在维护，请稍后重试';
+          } else if (axiosError.response?.status === 504) {
+            friendlyMessage = '网关超时 (504)，服务器响应过慢，请稍后重试';
           }
           sendMcpLog('error', `❌ 请求失败 (${attempt + 1}次尝试): ${friendlyMessage}`);
           throw new Error(friendlyMessage);
