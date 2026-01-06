@@ -285,7 +285,8 @@ export class PromptEnhancer {
     if (platform === 'darwin') {
       command = `open "${url}"`;
     } else if (platform === 'win32') {
-      command = `start "${url}"`;
+      // Windows 的 start 命令：第一个引号参数是窗口标题，第二个才是 URL
+      command = `start "ACE-TOOL" "${url}"`;
     } else {
       command = `xdg-open "${url}"`;
     }
