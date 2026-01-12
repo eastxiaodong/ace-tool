@@ -11,7 +11,7 @@ export const ENHANCE_PROMPT_TOOL = {
     properties: {
       project_root_path: {
         type: 'string',
-        description: '项目根目录的绝对路径（可选，默认使用当前工作目录）',
+        description: '项目根目录的绝对路径。重要：从 IDE 的工作区/项目根目录信息获取（如 IDE State 中的 Workspace 字段，或在终端使用 pwd 命令）。',
       },
       prompt: {
         type: 'string',

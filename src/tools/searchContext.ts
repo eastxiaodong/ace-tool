@@ -36,7 +36,22 @@ export async function searchContextTool(args: SearchContextArgs): Promise<ToolRe
     }
 
     if (!projectRootPath) {
-      return { type: 'text', text: 'Error: project_root_path is required' };
+      return {
+        type: 'text',
+        text: `Error: project_root_path is required.
+
+To fix this, please:
+1. Get the path from IDE's Workspace field (shown in IDE State/System Prompt)
+2. Or run 'pwd' command in terminal to get current directory
+3. Or ask user to provide the path by saying: "请告诉我你的项目目录路径" / "What is your project directory path?"
+
+User can also say:
+- "请在 /path/to/project 创建索引" (Chinese)
+- "Create index in /path/to/project" (English)
+- "使用当前目录创建索引" (then use pwd to get path)
+
+Example path format: /Users/username/projects/myproject or C:/Users/username/projects/myproject`
+      };
     }
 
     // 规范化路径（统一使用正斜杠）

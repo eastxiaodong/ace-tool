@@ -60,6 +60,15 @@ Search for relevant code context based on a natural language query.
 - `project_root_path` (required): Absolute path to the project root directory
 - `query` (required): Natural language description of the code you're looking for
 
+**How AI Gets the Path:**
+
+When used in an IDE (like Cursor, VS Code with MCP support), the AI automatically obtains the project path from:
+1. **IDE Workspace field** - The `Workspace` field in IDE State/System Prompt
+2. **Terminal `pwd` command** - Running `pwd` to get current directory
+3. **User input** - Asking user to provide the path if not available
+
+> **Note:** In most IDE environments, you don't need to manually specify the path. The AI will automatically detect it from the IDE's workspace information.
+
 **Example queries:**
 
 - "Where is the function that handles user authentication?"
@@ -199,6 +208,15 @@ npx -y ace-tool@latest --base-url <URL> --token <TOKEN>
 
 - `project_root_path`（必填）：项目根目录的绝对路径
 - `query`（必填）：描述你要查找的代码的自然语言
+
+**AI 如何获取路径：**
+
+在 IDE 中使用时（如 Cursor、支持 MCP 的 VS Code），AI 会自动从以下来源获取项目路径：
+1. **IDE Workspace 字段** - IDE 状态/系统提示中的 `Workspace` 字段
+2. **终端 `pwd` 命令** - 运行 `pwd` 获取当前目录
+3. **用户输入** - 如果无法自动获取，会询问用户提供路径
+
+> **注意：** 在大多数 IDE 环境中，你不需要手动指定路径。AI 会自动从 IDE 的工作区信息中检测路径。
 
 **查询示例：**
 

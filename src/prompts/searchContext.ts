@@ -60,7 +60,9 @@ For example:
     properties: {
       project_root_path: {
         type: 'string',
-        description: `Absolute path to the project root directory. Use forward slashes (/) as separators. Example: /Users/username/projects/myproject or C:/Users/username/projects/myproject`
+        description: `Absolute path to the project root directory.
+IMPORTANT: Get this path from your IDE's workspace/project root information (e.g., the 'Workspace' field in IDE State, or use 'pwd' command in terminal).
+Use forward slashes (/) as separators. Example: /Users/username/projects/myproject or C:/Users/username/projects/myproject`
       },
       query: {
         type: 'string',
